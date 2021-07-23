@@ -122,17 +122,6 @@ class SyncroAPI:
             return False
         return response["tickets"][0]
 
-    # This method isn't available currently via the Syncro API even though it says it should work.
-    # def get_invoice_by_number(self, invoice_number: int) -> object:
-    #     self.request_type = "invoices"
-    #     self.request_parameters['id'] = str(invoice_number)
-    #     response = self.request()
-    #     if self.debug:
-    #         print(response)
-    #     if "invoice" not in response or len(response["invoice"]) < 1:
-    #         return False
-    #     return response["invoice"]
-
     def get_contacts_from_customer(self, customer_id: int):
         self.request_type = "contacts"
         self.request_parameters['customer_id'] = str(customer_id)
