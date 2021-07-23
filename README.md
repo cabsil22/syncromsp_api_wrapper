@@ -1,14 +1,17 @@
 Syncro MSP API Wrapper and a few example functions. 
 
-Requirements:
+**Requirements:**
+
 python requests module
 
-syncro_contacts_csv.py script:
+**syncro_contacts_csv.py script:**
 
- Customers - View Detail Single
- Customers - Edit Single
+Customers - View Detail Single
+
+Customers - Edit Single
  
- Usage:
- 
- syncro_contacts_csv.py import <customer_id> contacts.csv
- syncro_contacts_csv.py export <customer_id> contacts.csv
+**Usage:**
+
+syncro_contacts_csv.py import <customer_id> contacts.csv
+
+syncro_contacts_csv.py export <customer_id> contacts.csv
