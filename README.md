@@ -6,6 +6,8 @@ python requests module
 
 **syncro_contacts_csv.py script:**
 
+You will need the following permissions in Syncro for your api key:
+
 Customers - View Detail Single
 
 Customers - Edit Single
