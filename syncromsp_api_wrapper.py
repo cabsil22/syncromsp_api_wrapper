@@ -1,12 +1,15 @@
 import requests
 from collections import OrderedDict
+import os
 
 
 class SyncroAPI:
 
-    def __init__(self, subdomain, api_key, server_domain=None, api_version_string=None, protocol=None, debug=False):
+    def __init__(self, subdomain, api_key=None, server_domain=None, api_version_string=None, protocol=None, debug=False, auto_clean=False):
         self.subdomain = subdomain
-        self.api_key = api_key
+        self.api_key = os.environ.get("SYNCRO_API_KEY") or api_key
+        if not self.api_key:
+            raise ValueError("No Syncro API Key")
         self.debug = False
         self.pages = 1
         self.body = ""
@@ -27,6 +30,7 @@ class SyncroAPI:
 
         self.request_type = ""
         self.request_parameters = OrderedDict()
+        self._auto_clean = auto_clean
 
     def build_url(self):
         url = self.protocol + "://" + self.subdomain + "." + self.server_domain + self.api_version_string
@@ -48,9 +52,26 @@ class SyncroAPI:
             print(url)
         return url
 
+    def _get_all_by_type(self, request_type, json_category=None):
+        if not json_category:
+            json_category = request_type
+        self.request_type = request_type
+        items = []
+        i = 1
+        pages = 1
+        while i <= pages:
+            self.request_parameters["page"] = str(i)
+            response = self.request()
+            items.extend(response[json_category])
+            pages = response['meta']['total_pages']
+            i = i + 1
+        return items
+
     def request(self):
         url = self.build_url()
         r = requests.get(url)
+        if self._auto_clean:
+            self.clean()
         return r.json()
 
     def post_request(self):
@@ -58,19 +79,15 @@ class SyncroAPI:
         r = requests.post(url, data=self.body)
         return r.json()
 
-
     def get_tickets(self):
-        self.request_type = "tickets"
-        tickets = []
-        i = 1
-        pages = 1
-        while i <= pages:
-            self.request_parameters["page"] = str(i)
-            response = self.request()
-            tickets.extend(response['tickets'])
-            pages = response['meta']['total_pages']
-            i = i + 1
-        return tickets
+        return self._get_all_by_type("tickets")
+
+    def get_customers(self):
+        return self._get_all_by_type("customers")
+
+    def get_assets_by_customer_id(self, customer_id):
+        self.request_parameters['customer_id'] = customer_id
+        return self._get_all_by_type("customer_assets", "assets")
 
     def get_ticket_by_id(self, ticket_id: int) -> object:
         """
@@ -113,6 +130,7 @@ class SyncroAPI:
         """
         self.request_parameters = OrderedDict()
         self.request_type = ""
+        self.body = ""
 
     def get_ticket_by_number(self, ticket_number: int) -> object:
         self.request_type = "tickets"
@@ -143,4 +161,80 @@ class SyncroAPI:
         self.body = contact
         response = self.post_request()
         return response
+
+    def get_contacts(self):
+        return self._get_all_by_type("contacts")
+
+    def get_contact_by_id(self, id):
+        self.request_type = f"contacts/{id}"
+        response = self.request()
+        if self.debug:
+            print("GET_CONTACT_BY_ID response: ", response)
+        if 'name' in response:
+            contact = response
+            return contact
+        return False
+
+    def search(self, criteria):
+        self.request_type = 'search'
+        self.request_parameters['query'] = criteria
+        results = self.request()
+        return results
+
+    def post_ticket(self, ticket: dict):
+        self.request_type = "tickets"
+        self.body = ticket
+        url = self.build_url()
+        r = requests.post(url, json=self.body)
+        self.clean()
+        return r.json()
+
+    def post_asset(self, asset: dict):
+        self.request_type = "customer_assets"
+        self.body = asset
+        url = self.build_url()
+        r = requests.post(url, json=self.body)
+        self.clean()
+        response = r.json()
+        if self.debug:
+            print(response)
+        if 'asset' in response:
+            asset = response['asset']
+            return asset
+        else:
+            return False
+
+    def put_asset(self, asset: dict):
+        self.request_type = f"customer_assets/{asset['asset_id']}"
+        self.body = asset
+        url = self.build_url()
+        r = requests.put(url, json=self.body)
+        self.clean()
+        response = r.json()
+        if self.debug:
+            print(response)
+        if 'asset' in response:
+            asset = response['asset']
+            return asset
+        else:
+            return False
+
+    def get_ticket_status_types(self):
+        self.request_type = "tickets/settings"
+        r = self.request()
+        ticket_status_types = r['ticket_types']
+        return ticket_status_types
+
+    def get_asset_by_id(self, asset_id):
+        self.request_type = f"customer_assets/{asset_id}"
+        response = self.request()
+        return response
+
+    def post_ticket_comment(self, ticket: dict):
+        self.request_type = f"tickets/{ticket['id']}/comment"
+        self.body = ticket
+        url = self.build_url()
+        r = requests.post(url, json=self.body)
+        self.clean()
+        return r.json()
 
