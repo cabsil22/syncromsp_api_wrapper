@@ -1,11 +1,13 @@
 import requests
 from collections import OrderedDict
 import os
+from munch import Munch
 
 
 class SyncroAPI:
 
-    def __init__(self, subdomain, api_key=None, server_domain=None, api_version_string=None, protocol=None, debug=False, auto_clean=False):
+    def __init__(self, subdomain, api_key=None, server_domain=None, api_version_string=None, protocol=None, debug=False, auto_clean=False, return_objects=True):
+        self.return_objects = return_objects
         self.subdomain = subdomain
         self.api_key = os.environ.get("SYNCRO_API_KEY") or api_key
         if not self.api_key:
@@ -52,6 +54,13 @@ class SyncroAPI:
             print(url)
         return url
 
+    def _return(self, value):
+        if self.debug:
+            print(value)
+        if self.return_objects:
+            return Munch.fromDict(value)
+        return value
+
     def _get_all_by_type(self, request_type, json_category=None):
         if not json_category:
             json_category = request_type
@@ -79,15 +88,17 @@ class SyncroAPI:
         r = requests.post(url, data=self.body)
         return r.json()
 
-    def get_tickets(self):
-        return self._get_all_by_type("tickets")
+    def get_tickets(self, status="Not Closed"):
+        if status:
+            self.request_parameters["status"] = status
+        return self._return(self._get_all_by_type("tickets"))
 
     def get_customers(self):
-        return self._get_all_by_type("customers")
+        return self._return(self._get_all_by_type("customers"))
 
     def get_assets_by_customer_id(self, customer_id):
         self.request_parameters['customer_id'] = customer_id
-        return self._get_all_by_type("customer_assets", "assets")
+        return self._return(self._get_all_by_type("customer_assets", "assets"))
 
     def get_ticket_by_id(self, ticket_id: int) -> object:
         """
@@ -101,13 +112,13 @@ class SyncroAPI:
         response = self.request()
         if "ticket" not in response:
             return False
-        return response['ticket']
+        return self._return(response['ticket'])
 
     def get_invoices(self):
         self.request_type = "invoices"
         response = self.request()
         invoices = response['invoices']
-        return invoices
+        return self._return(invoices)
 
     def get_invoice_by_id(self, invoice_id):
         self.request_type = "invoices"
@@ -115,12 +126,12 @@ class SyncroAPI:
         response = self.request()
         if "invoice" not in response:
             return False
-        return response['invoice']
+        return self._return(response['invoice'])
 
     def get_products(self):
         self.request_type = "products"
         response = self.request()
-        return response['products']
+        return self._return(response['products'])
 
     def clean(self):
         """
@@ -138,7 +149,7 @@ class SyncroAPI:
         response = self.request()
         if "tickets" not in response or len(response["tickets"]) < 1:
             return False
-        return response["tickets"][0]
+        return self._return(response["tickets"][0])
 
     def get_contacts_from_customer(self, customer_id: int):
         self.request_type = "contacts"
@@ -154,7 +165,7 @@ class SyncroAPI:
             contacts.extend(response['contacts'])
             pages = response['meta']['total_pages']
             i = i + 1
-        return contacts
+        return self._return(contacts)
 
     def post_contact(self, contact: dict):
         self.request_type = "contacts"
@@ -163,7 +174,7 @@ class SyncroAPI:
         return response
 
     def get_contacts(self):
-        return self._get_all_by_type("contacts")
+        return self._return(self._get_all_by_type("contacts"))
 
     def get_contact_by_id(self, id):
         self.request_type = f"contacts/{id}"
@@ -172,14 +183,14 @@ class SyncroAPI:
             print("GET_CONTACT_BY_ID response: ", response)
         if 'name' in response:
             contact = response
-            return contact
+            return self._return(contact)
         return False
 
     def search(self, criteria):
         self.request_type = 'search'
         self.request_parameters['query'] = criteria
         results = self.request()
-        return results
+        return self._return(results)
 
     def post_ticket(self, ticket: dict):
         self.request_type = "tickets"
@@ -220,15 +231,26 @@ class SyncroAPI:
             return False
 
     def get_ticket_status_types(self):
+        """ deprecated due to incorrect labeling
+         use get_ticket_types() instead """
+        return self._return(self.get_ticket_types())
+
+    def get_ticket_types(self):
         self.request_type = "tickets/settings"
         r = self.request()
-        ticket_status_types = r['ticket_types']
-        return ticket_status_types
+        ticket_types = r['ticket_types']
+        return self._return(ticket_types)
+
+    def get_ticket_status_list(self):
+        self.request_type = "tickets/settings"
+        r = self.request()
+        ticket_status_list = r['ticket_status_list']
+        return self._return(ticket_status_list)
 
     def get_asset_by_id(self, asset_id):
         self.request_type = f"customer_assets/{asset_id}"
         response = self.request()
-        return response
+        return self._return(response)
 
     def post_ticket_comment(self, ticket: dict):
         self.request_type = f"tickets/{ticket['id']}/comment"
